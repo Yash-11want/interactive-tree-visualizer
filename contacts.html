@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Smart Phonebook — AVL Contact Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e10;--bg2:#16161a;--bg3:#1e1e24;--bg4:#222228;
+  --border:#2a2a32;--border2:#3a3a46;
+  --text:#f0f0f4;--muted:#7a7a8c;--faint:#4a4a58;
+  --accent:#6c63ff;--success:#3ecf8e;--warn:#f6a623;--danger:#ef4444;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;display:flex;flex-direction:column}
+ 
+/* HEADER */
+.header{display:flex;align-items:center;gap:12px;padding:.75rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.back-btn{background:none;border:1px solid var(--border2);border-radius:6px;padding:.35rem .9rem;font-size:11px;font-family:inherit;cursor:pointer;color:var(--muted);transition:all .15s;text-decoration:none;display:inline-block}
+.back-btn:hover{color:var(--text);border-color:var(--text)}
+.header-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700}
+.badge{font-size:10px;padding:2px 8px;border-radius:4px;letter-spacing:.08em;background:rgba(108,99,255,.18);color:var(--accent)}
+.header-stats{margin-left:auto;display:flex;gap:1.5rem;font-size:11px;color:var(--muted)}
+.stat span{color:var(--text);font-weight:500}
+ 
+/* LAYOUT */
+.body{display:flex;flex:1;overflow:hidden;min-height:0}
+ 
+/* SIDEBAR */
+.sidebar{width:260px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-scroll{overflow-y:auto;flex:1;padding:.875rem}
+.sb-section{margin-bottom:1.25rem}
+.sb-label{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-bottom:.6rem;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+ 
+/* Op tabs */
+.op-tabs{display:flex;gap:4px;margin-bottom:.75rem;flex-wrap:wrap}
+.op-tab{flex:1;min-width:56px;padding:.4rem 0;font-size:10px;font-family:inherit;border:1px solid var(--border2);border-radius:6px;background:none;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
+.op-tab:hover{color:var(--text)}
+.op-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+ 
+/* Inputs */
+.field-group{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.field-label{font-size:9px;color:var(--faint);letter-spacing:.1em;text-transform:uppercase}
+.val-input{padding:.45rem .6rem;font-family:inherit;font-size:12px;border:1px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);width:100%}
+.val-input:focus{outline:none;border-color:var(--accent)}
+select.val-input{cursor:pointer}
+.go-btn{width:100%;padding:.5rem;font-size:12px;font-family:inherit;border:none;border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;transition:opacity .15s;margin-top:2px}
+.go-btn:hover{opacity:.85}
+.go-btn.danger{background:var(--danger)}
+.go-btn.warn{background:var(--warn);color:#000}
+ 
+/* Contact list */
+.contact-list{margin-top:4px}
+.contact-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;margin-bottom:6px;cursor:pointer;transition:border-color .15s;position:relative}
+.contact-item:hover{border-color:var(--accent)}
+.contact-item.highlighted{border-color:var(--success);box-shadow:0 0 0 1px var(--success)}
+.contact-name{font-size:12px;font-weight:600;color:var(--text)}
+.contact-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.contact-actions{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.contact-item:hover .contact-actions{opacity:1}
+.ic-btn{background:none;border:1px solid var(--border2);border-radius:5px;padding:3px 7px;font-size:10px;cursor:pointer;color:var(--muted);font-family:inherit}
+.ic-btn:hover{color:var(--text);background:var(--bg4)}
+.ic-btn.del{color:var(--danger);border-color:rgba(239,68,68,.3)}
+.ic-btn.del:hover{background:rgba(239,68,68,.08)}
+ 
+/* Step log */
+.steps-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:.65rem .75rem;max-height:140px;min-height:60px;overflow-y:auto;font-size:10.5px;line-height:1.65}
+.step{padding:2px 0;border-bottom:1px solid var(--border);color:var(--muted)}
+.step:last-child{border:none}
+.step.visit{color:var(--warn)}.step.success{color:var(--success)}.step.error{color:var(--danger)}.step.info{color:var(--text);font-weight:500}
+ 
+/* CANVAS */
+.canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.canvas-wrap::before{content:'';position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:32px 32px;opacity:.2;pointer-events:none}
+#tree-svg{flex:1;width:100%;display:block;position:relative;z-index:1}
+.empty-state{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--faint);font-size:12px;z-index:2;pointer-events:none}
+.empty-state .big{font-size:48px;margin-bottom:.75rem;opacity:.2}
+ 
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:1.5rem;width:320px;max-width:95vw}
+.modal h3{font-family:'Syne',sans-serif;margin-bottom:1rem;font-size:14px}
+.modal .field-group{margin-bottom:10px}
+.modal-actions{display:flex;gap:8px;margin-top:1rem}
+.modal-actions button{flex:1}
+ 
+/* Tooltip */
+.tooltip{position:absolute;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:.5rem .85rem;font-size:10px;color:var(--text);pointer-events:none;z-index:10;display:none;line-height:1.7}
+ 
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:12px;padding:.6rem 1.25rem;background:var(--bg2);border-top:1px solid var(--border);font-size:10px;color:var(--muted);flex-shrink:0}
+.leg{display:flex;align-items:center;gap:5px}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+</style>
+</head>
+<body>
+ 
+<!-- HEADER -->
+<div class="header">
+  <a class="back-btn" href="/">← back</a>
+  <span class="header-title">Smart Phonebook</span>
+  <span class="badge">AVL ENGINE</span>
+  <div class="header-stats">
+    <div class="stat">Contacts: <span id="stat-nodes">0</span></div>
+    <div class="stat">Tree height: <span id="stat-height">0</span></div>
+    <div class="stat">Balanced: <span id="stat-bal">yes</span></div>
+  </div>
+</div>
+ 
+<div class="body">
+ 
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-scroll">
+ 
+      <!-- Op tabs -->
+      <div class="sb-section">
+        <div class="sb-label">Operation</div>
+        <div class="op-tabs">
+          <button class="op-tab active" id="tab-add"    onclick="setOp('add')">Add</button>
+          <button class="op-tab"        id="tab-search" onclick="setOp('search')">Search</button>
+          <button class="op-tab"        id="tab-delete" onclick="setOp('delete')">Delete</button>
+          <button class="op-tab"        id="tab-reset"  onclick="confirmReset()">Reset</button>
+        </div>
+ 
+        <!-- ADD -->
+        <div id="panel-add">
+          <div class="field-group"><div class="field-label">Full Name *</div><input class="val-input" id="add-name" placeholder="e.g. Alice Smith" onkeydown="if(event.key==='Enter')execOp()"/></div>
+          <div class="field-group"><div class="field-label">Phone</div><input class="val-input" id="add-phone" placeholder="e.g. 9876543210" onkeydown="if(event.key==='Enter')execOp()"/></div>
+          <div class="field-group"><div class="field-label">Email</div><input class="val-input" id="add-email" placeholder="e.g. alice@mail.com" onkeydown="if(event.key==='Enter')execOp()"/></div>
+          <button class="go-btn" onclick="execOp()">Save Contact</button>
+        </div>
+ 
+        <!-- SEARCH -->
+        <div id="panel-search" style="display:none">
+          <div class="field-group">
+            <div class="field-label">Search by</div>
+            <select class="val-input" id="search-field">
+              <option value="name">Name</option>
+              <option value="phone">Phone</option>
+              <option value="email">Email</option>
+            </select>
+          </div>
+          <div class="field-group"><div class="field-label">Query</div><input class="val-input" id="search-query" placeholder="Enter search term…" onkeydown="if(event.key==='Enter')execOp()"/></div>
+          <button class="go-btn" onclick="execOp()">Search</button>
+        </div>
+ 
+        <!-- DELETE -->
+        <div id="panel-delete" style="display:none">
+          <div class="field-group"><div class="field-label">Contact Name</div><input class="val-input" id="del-name" placeholder="Exact name to delete" onkeydown="if(event.key==='Enter')execOp()"/></div>
+          <button class="go-btn danger" onclick="execOp()">Delete Contact</button>
+        </div>
+      </div>
+ 
+      <!-- Contact List -->
+      <div class="sb-section">
+        <div class="sb-label">All Contacts <span id="contact-count" style="color:var(--muted);font-size:9px"></span></div>
+        <div class="contact-list" id="contact-list">
+          <div style="color:var(--faint);font-size:10px">No contacts yet.</div>
+        </div>
+      </div>
+ 
+      <!-- Step log -->
+      <div class="sb-section" style="display:flex;flex-direction:column;min-height:0">
+        <div class="sb-label">Log</div>
+        <div class="steps-box" id="steps-box"><div class="step" style="color:var(--faint)">Actions appear here…</div></div>
+      </div>
+ 
+    </div>
+  </div>
+ 
+  <!-- CANVAS -->
+  <div class="canvas-wrap">
+    <div class="empty-state" id="empty-state">
+      <div class="big">📇</div>
+      Phonebook is empty.<br/>Add a contact to begin.
+    </div>
+    <svg id="tree-svg" viewBox="0 0 900 560"></svg>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+ 
+<div class="legend">
+  <div class="leg"><div class="leg-dot" style="background:#3b5bdb"></div>Contact node</div>
+  <div class="leg"><div class="leg-dot" style="background:#ef4444"></div>Unbalanced / deleting</div>
+  <div class="leg"><div class="leg-dot" style="background:#f6a623"></div>Visiting</div>
+  <div class="leg"><div class="leg-dot" style="background:#3ecf8e"></div>Found / inserted</div>
+  <div class="leg"><div class="leg-dot" style="background:#a855f7"></div>Rebalancing</div>
+</div>
+ 
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>Edit Contact</h3>
+    <input type="hidden" id="edit-old-name"/>
+    <div class="field-group"><div class="field-label">Full Name</div><input class="val-input" id="edit-name" placeholder="Full Name"/></div>
+    <div class="field-group"><div class="field-label">Phone</div><input class="val-input" id="edit-phone" placeholder="Phone"/></div>
+    <div class="field-group"><div class="field-label">Email</div><input class="val-input" id="edit-email" placeholder="Email"/></div>
+    <div class="modal-actions">
+      <button class="go-btn warn" onclick="saveEdit()">Save</button>
+      <button class="go-btn" style="background:var(--bg3);border:1px solid var(--border2)" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+ 
+<script>
+var currentOp = 'add';
+var treeCache = null;
+var contactsCache = [];
+var stepLog = [];
+var highlightedName = null;
+ 
+// ── Op tabs ──────────────────────────────────────────────
+function setOp(op) {
+  currentOp = op;
+  ['add','search','delete','reset'].forEach(o => {
+    var tab = document.getElementById('tab-'+o);
+    if (tab) tab.classList.toggle('active', o === op);
+  });
+  ['add','search','delete'].forEach(p => {
+    var panel = document.getElementById('panel-'+p);
+    if (panel) panel.style.display = (p === op) ? 'block' : 'none';
+  });
+}
+ 
+// ── Log ──────────────────────────────────────────────────
+function addStep(msg, cls) {
+  stepLog.push({msg, cls});
+  var box = document.getElementById('steps-box');
+  box.innerHTML = stepLog.slice(-30).map(s=>`<div class="step ${s.cls||''}">${s.msg}</div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+ 
+// ── API ──────────────────────────────────────────────────
+async function api(path, body) {
+  var res = await fetch('/api/cm/'+path, {
+    method: body !== undefined ? 'POST' : 'GET',
+    headers: {'Content-Type':'application/json'},
+    body: body !== undefined ? JSON.stringify(body) : undefined
+  });
+  return res.json();
+}
+ 
+// ── Execute op ───────────────────────────────────────────
+async function execOp() {
+  if (currentOp === 'add') {
+    var name  = document.getElementById('add-name').value.trim();
+    var phone = document.getElementById('add-phone').value.trim() || 'N/A';
+    var email = document.getElementById('add-email').value.trim() || 'N/A';
+    if (!name) { addStep('Name is required.','error'); return; }
+    addStep(`── ADD "${name}" ──`, 'info');
+    var data = await api('insert', {name, phone, email});
+    if (data.error) { addStep(data.error,'error'); return; }
+    treeCache = data.tree;
+    renderTree(treeCache, name, 'insert');
+    addStep(data.message, 'success');
+    document.getElementById('add-name').value='';
+    document.getElementById('add-phone').value='';
+    document.getElementById('add-email').value='';
+    await refreshList();
+    updateStats(treeCache);
+ 
+  } else if (currentOp === 'search') {
+    var field = document.getElementById('search-field').value;
+    var query = document.getElementById('search-query').value.trim();
+    if (!query) { addStep('Enter a search term.','error'); return; }
+    addStep(`── SEARCH by ${field}: "${query}" ──`,'info');
+    var data = await api('search', {field, query});
+    if (data.found) {
+      var c = data.contact;
+      addStep(`✔ Found: ${c.name} | ${c.phone} | ${c.email}`, 'success');
+      highlightContact(c.name);
+      renderTree(treeCache, c.name, 'found');
+    } else {
+      addStep(`✘ No contact found for "${query}"`, 'error');
+      renderTree(treeCache, null, null);
+    }
+ 
+  } else if (currentOp === 'delete') {
+    var name = document.getElementById('del-name').value.trim();
+    if (!name) { addStep('Enter a name to delete.','error'); return; }
+    addStep(`── DELETE "${name}" ──`,'info');
+    var data = await api('delete', {name});
+    if (data.error) { addStep(data.error,'error'); return; }
+    treeCache = data.tree;
+    renderTree(treeCache, null, null);
+    addStep(data.message, 'error');
+    document.getElementById('del-name').value='';
+    await refreshList();
+    updateStats(treeCache);
+  }
+}
+ 
+// ── Refresh sidebar list ─────────────────────────────────
+async function refreshList() {
+  var data = await api('list');
+  contactsCache = data.contacts || [];
+  renderList(contactsCache);
+  document.getElementById('contact-count').textContent = `(${contactsCache.length})`;
+}
+ 
+function renderList(contacts) {
+  var el = document.getElementById('contact-list');
+  if (!contacts.length) {
+    el.innerHTML = '<div style="color:var(--faint);font-size:10px">No contacts yet.</div>';
+    return;
+  }
+  el.innerHTML = contacts.map(c => `
+    <div class="contact-item" id="ci-${esc(c.name)}" onclick="highlightContact('${esc(c.name)}')">
+      <div class="contact-name">${esc(c.name)}</div>
+      <div class="contact-sub">${c.phone} · ${c.email}</div>
+      <div class="contact-actions">
+        <button class="ic-btn" onclick="event.stopPropagation();openEdit('${esc(c.name)}','${esc(c.phone)}','${esc(c.email)}')">✎</button>
+        <button class="ic-btn del" onclick="event.stopPropagation();quickDelete('${esc(c.name)}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+ 
+function esc(s) { return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+ 
+function highlightContact(name) {
+  document.querySelectorAll('.contact-item').forEach(el => el.classList.remove('highlighted'));
+  var id = 'ci-' + esc(name);
+  var el = document.getElementById(id);
+  if (el) { el.classList.add('highlighted'); el.scrollIntoView({block:'nearest'}); }
+  renderTree(treeCache, name, 'found');
+}
+ 
+// ── Quick delete from list ───────────────────────────────
+async function quickDelete(name) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  addStep(`── DELETE "${name}" ──`,'info');
+  var data = await api('delete', {name});
+  treeCache = data.tree;
+  renderTree(treeCache, null, null);
+  addStep(data.message, 'error');
+  await refreshList();
+  updateStats(treeCache);
+}
+ 
+// ── Edit modal ───────────────────────────────────────────
+function openEdit(name, phone, email) {
+  document.getElementById('edit-old-name').value = name;
+  document.getElementById('edit-name').value = name;
+  document.getElementById('edit-phone').value = phone;
+  document.getElementById('edit-email').value = email;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+ 
+async function saveEdit() {
+  var oldName = document.getElementById('edit-old-name').value;
+  var name    = document.getElementById('edit-name').value.trim();
+  var phone   = document.getElementById('edit-phone').value.trim() || 'N/A';
+  var email   = document.getElementById('edit-email').value.trim() || 'N/A';
+  if (!name) { alert('Name cannot be empty'); return; }
+  addStep(`── UPDATE "${oldName}" → "${name}" ──`,'info');
+  var data = await api('update', {oldName, name, phone, email});
+  treeCache = data.tree;
+  renderTree(treeCache, name, 'insert');
+  addStep(data.message, 'success');
+  closeModal();
+  await refreshList();
+  updateStats(treeCache);
+}
+ 
+// ── Reset ────────────────────────────────────────────────
+async function confirmReset() {
+  if (!confirm('Reset the entire phonebook?')) { setOp('add'); return; }
+  await api('reset', {});
+  treeCache = null;
+  contactsCache = [];
+  renderList([]);
+  renderTree(null, null, null);
+  stepLog = [];
+  document.getElementById('steps-box').innerHTML = '<div class="step" style="color:var(--faint)">Actions appear here…</div>';
+  addStep('Phonebook reset.','info');
+  updateStats(null);
+  setOp('add');
+}
+ 
+// ── Stats ────────────────────────────────────────────────
+function treeHeight(n){ if(!n)return 0; return 1+Math.max(treeHeight(n.left),treeHeight(n.right)); }
+function countNodes(n){ if(!n)return 0; return 1+countNodes(n.left)+countNodes(n.right); }
+function isBalancedAVL(n){ if(!n)return true; return Math.abs(n.bf||0)<=1&&isBalancedAVL(n.left)&&isBalancedAVL(n.right); }
+function updateStats(tree) {
+  document.getElementById('stat-nodes').textContent  = countNodes(tree);
+  document.getElementById('stat-height').textContent = treeHeight(tree);
+  document.getElementById('stat-bal').textContent    = isBalancedAVL(tree)?'yes':'no';
+}
+ 
+// ── Render ────────────────────────────────────────────────
+var SVG_W=900, SVG_H=560, R=22;
+ 
+function nodeColor(n, hval, haction) {
+  if (n.value === hval) return haction==='found'?'#3ecf8e':haction==='delete'?'#ef4444':'#3ecf8e';
+  if (Math.abs(n.bf||0) > 1) return '#ef4444';
+  return '#3b5bdb';
+}
+ 
+function initials(name) {
+  return String(name).split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2);
+}
+ 
+function renderTree(root, hval, haction) {
+  var svg    = document.getElementById('tree-svg');
+  var empty  = document.getElementById('empty-state');
+  var tip    = document.getElementById('tooltip');
+  if (!root) { svg.innerHTML=''; empty.style.display='block'; tip.style.display='none'; return; }
+  empty.style.display='none';
+ 
+  var vb = svg.viewBox.baseVal;
+  var W  = vb.width || SVG_W;
+ 
+  var nodes=[], edges=[];
+  function layout(n, depth, lo, hi) {
+    if (!n) return;
+    var mx=(lo+hi)/2, y=50+depth*80;
+    n._x=mx; n._y=y;
+    nodes.push(n);
+    if(n.left)  { edges.push({x1:mx,y1:y,x2:(lo+mx)/2,y2:y+80}); layout(n.left, depth+1,lo,mx); }
+    if(n.right) { edges.push({x1:mx,y1:y,x2:(mx+hi)/2,y2:y+80}); layout(n.right,depth+1,mx,hi); }
+  }
+  layout(root, 0, 0, W);
+ 
+  var out='';
+  edges.forEach(e=>{
+    out+=`<line x1="${e.x1}" y1="${e.y1}" x2="${e.x2}" y2="${e.y2}" stroke="#3a3a46" stroke-width="1.5" opacity="0.6"/>`;
+  });
+ 
+  nodes.forEach(n=>{
+    var fill = nodeColor(n, hval, haction);
+    if (n.value===hval) out+=`<circle cx="${n._x}" cy="${n._y}" r="${R+6}" fill="none" stroke="${fill}" stroke-width="1" opacity="0.4"/>`;
+    out+=`<circle cx="${n._x}" cy="${n._y}" r="${R}" fill="${fill}" stroke="none" class="tnode" data-name="${esc(String(n.value))}" data-phone="${esc(String(n.phone||''))}" data-email="${esc(String(n.email||''))}"/>`;
+    out+=`<text x="${n._x}" y="${n._y+4}" text-anchor="middle" fill="#fff" font-size="10" font-family="JetBrains Mono,monospace" font-weight="600" pointer-events="none">${initials(n.value)}</text>`;
+    // Name label below
+    var label = String(n.value).split(' ')[0];
+    out+=`<text x="${n._x}" y="${n._y+R+13}" text-anchor="middle" fill="${n.value===hval?fill:'#7a7a8c'}" font-size="9" font-family="JetBrains Mono,monospace" pointer-events="none">${label}</text>`;
+    // BF badge
+    var bfColor = Math.abs(n.bf||0)>1?'#ef4444':Math.abs(n.bf||0)===1?'#f6a623':'#4a4a58';
+    out+=`<text x="${n._x+R+2}" y="${n._y-R+8}" font-size="8" fill="${bfColor}" font-family="JetBrains Mono,monospace" pointer-events="none">${(n.bf>=0?'+':'')+n.bf}</text>`;
+  });
+ 
+  svg.innerHTML = out;
+ 
+  // Tooltip on hover
+  svg.querySelectorAll('.tnode').forEach(circle => {
+    circle.addEventListener('mouseenter', function(e) {
+      var name  = this.dataset.name;
+      var phone = this.dataset.phone;
+      var email = this.dataset.email;
+      tip.innerHTML = `<b>${name}</b><br/>📞 ${phone}<br/>✉ ${email}`;
+      tip.style.display = 'block';
+    });
+    circle.addEventListener('mousemove', function(e) {
+      var rect = svg.getBoundingClientRect();
+      tip.style.left = (e.clientX - rect.left + 12)+'px';
+      tip.style.top  = (e.clientY - rect.top  - 10)+'px';
+    });
+    circle.addEventListener('mouseleave', function() {
+      tip.style.display='none';
+    });
+    circle.addEventListener('click', function() {
+      highlightContact(this.dataset.name);
+    });
+  });
+}
+ 
+// Resize SVG viewBox to fill canvas
+function resizeSVG() {
+  var svg   = document.getElementById('tree-svg');
+  var wrap  = svg.parentElement;
+  var w     = wrap.clientWidth, h = wrap.clientHeight;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  SVG_W = w; SVG_H = h;
+  renderTree(treeCache, null, null);
+}
+window.addEventListener('resize', resizeSVG);
+resizeSVG();
+ 
+// ── Init ─────────────────────────────────────────────────
+(async function(){
+  try {
+    var data = await api('tree');
+    treeCache = data.tree;
+    renderTree(treeCache, null, null);
+    updateStats(treeCache);
+    await refreshList();
+  } catch(e){ console.warn('Could not fetch initial tree', e); }
+})();
+</script>
+</body>
+</html>
+ 

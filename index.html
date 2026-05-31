@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Structures Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --card-bg: #161b22;
+            --accent-color: #58a6ff;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --border-color: #30363d;
+            --transition: all 0.2s ease-in-out;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        header {
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #fff, #8b949e);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Search Section */
+        .search-wrapper {
+            position: relative;
+            margin-bottom: 40px;
+        }
+
+        input {
+            width: 100%;
+            padding: 16px 20px;
+            padding-left: 45px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+        }
+
+        /* Responsive Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .tree-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: var(--transition);
+        }
+
+        .tree-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-color);
+            background: #1c2128;
+        }
+
+        .tree-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .tree-card p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(88, 166, 255, 0.1);
+            color: var(--accent-color);
+            width: fit-content;
+        }
+
+        /* Empty State */
+        #noResults {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Tree Structures Hub</h1>
+            <p class="subtitle">An interactive reference for advanced data structures and algorithms.</p>
+        </header>
+
+        <div class="search-wrapper">
+            <input type="text" id="searchBar" placeholder="Search structures, properties, or applications..." onkeyup="filterTrees()">
+        </div>
+        
+        <div class="grid" id="treeList">
+            <a href="/tree/bst" class="tree-card" data-name="binary search tree bst basic">
+                <div>
+                    <h3>Binary Search Tree</h3>
+                    <p>The foundational hierarchical structure where every left node is smaller than the parent.</p>
+                </div>
+                <span class="badge">Basic</span>
+            </a>
+
+            <a href="/tree/avl" class="tree-card" data-name="avl tree self balancing height">
+                <div>
+                    <h3>AVL Tree</h3>
+                    <p>Strictly self-balancing BST where heights of subtrees differ by at most one.</p>
+                </div>
+                <span class="badge">Self-Balancing</span>
+            </a>
+
+            <a href="/tree/rb" class="tree-card" data-name="red black tree rb colors">
+                <div>
+                    <h3>Red-Black Tree</h3>
+                    <p>Balanced BST optimized for faster insertions and removals than AVL trees.</p>
+                </div>
+                <span class="badge">Performance</span>
+            </a>
+
+            <a href="/contact-system" class="tree-card" data-name="contact management system phonebook avl">
+                <div>
+                    <h3>Contact Indexer</h3>
+                    <p>High-speed phonebook application leveraging AVL trees for O(log n) searching.</p>
+                </div>
+                <span class="badge">Real-World</span>
+            </a>
+        </div>
+
+        <div id="noResults">No matching tree structures found.</div>
+    </div>
+
+    <script>
+        function filterTrees() {
+            const input = document.getElementById('searchBar').value.toLowerCase();
+            const cards = document.getElementsByClassName('tree-card');
+            const noResults = document.getElementById('noResults');
+            let hasVisible = false;
+
+            for (let card of cards) {
+                const name = card.getAttribute('data-name');
+                if (name.includes(input)) {
+                    card.style.display = "flex";
+                    hasVisible = true;
+                } else {
+                    card.style.display = "none";
+                }
+            }
+
+            noResults.style.display = hasVisible ? "none" : "block";
+        }
+    </script>
+</body>
+</html>

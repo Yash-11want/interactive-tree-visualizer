@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{{ tree_type|upper }} Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e10;--bg2:#16161a;--bg3:#1e1e24;--bg4:#222228;
+  --border:#2a2a32;--border2:#3a3a46;
+  --text:#f0f0f4;--muted:#7a7a8c;--faint:#4a4a58;
+  --accent:#6c63ff;--success:#3ecf8e;--warn:#f6a623;--danger:#ef4444;
+  --node-default:#3b5bdb;--node-visit:#f6a623;--node-found:#3ecf8e;--node-delete:#ef4444;--node-rotate:#a855f7;
+  --rb-red:#ef4444;--rb-black:#2c3e50;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;display:flex;flex-direction:column}
+
+/* HEADER */
+.header{display:flex;align-items:center;gap:12px;padding:.75rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.back-btn{background:none;border:1px solid var(--border2);border-radius:6px;padding:.35rem .9rem;font-size:11px;font-family:inherit;cursor:pointer;color:var(--muted);transition:all .15s;text-decoration:none;display:inline-block}
+.back-btn:hover{color:var(--text);border-color:var(--text)}
+.header-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700}
+.header-badge{font-size:10px;padding:2px 8px;border-radius:4px;letter-spacing:.08em}
+.badge-bst{background:rgba(62,207,142,.15);color:var(--success)}
+.badge-avl{background:rgba(246,166,35,.15);color:var(--warn)}
+.badge-rb{background:rgba(239,68,68,.15);color:var(--danger)}
+.header-stats{margin-left:auto;display:flex;gap:1.5rem;font-size:11px;color:var(--muted)}
+.stat span{color:var(--text);font-weight:500}
+
+/* LAYOUT */
+.body{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* SIDEBAR */
+.sidebar{width:210px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-scroll{overflow-y:auto;flex:1;padding:.875rem}
+.sb-section{margin-bottom:1.25rem}
+.sb-label{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-bottom:.6rem;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+
+/* Op tabs */
+.op-tabs{display:flex;gap:4px;margin-bottom:.75rem}
+.op-tab{flex:1;padding:.4rem 0;font-size:11px;font-family:inherit;border:1px solid var(--border2);border-radius:6px;background:none;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
+.op-tab:hover{color:var(--text)}
+.op-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* Input */
+.input-row{display:flex;gap:6px}
+.val-input{flex:1;padding:.45rem .6rem;font-family:inherit;font-size:13px;border:1px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);width:0}
+.val-input:focus{outline:none;border-color:var(--accent)}
+.go-btn{padding:.45rem .8rem;font-size:12px;font-family:inherit;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.go-btn:hover{opacity:.85}
+
+/* Utility buttons */
+.util-row{display:flex;flex-direction:column;gap:5px}
+.util-btn{padding:.45rem .75rem;font-size:11px;font-family:inherit;border:1px solid var(--border2);border-radius:6px;background:none;cursor:pointer;color:var(--muted);transition:all .15s;text-align:left}
+.util-btn:hover{background:var(--bg3);color:var(--text)}
+.util-btn.danger{color:var(--danger);border-color:rgba(239,68,68,.3)}
+.util-btn.danger:hover{background:rgba(239,68,68,.08)}
+
+/* Speed */
+.speed-row{display:flex;align-items:center;gap:8px}
+.speed-row label{font-size:10px;color:var(--faint)}
+.speed-row input[type=range]{flex:1;accent-color:var(--accent)}
+
+/* Step log */
+.steps-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:.65rem .75rem;max-height:180px;min-height:80px;overflow-y:auto;font-size:10.5px;line-height:1.65;flex:1}
+.step{padding:2px 0;border-bottom:1px solid var(--border);color:var(--muted)}
+.step:last-child{border:none}
+.step.visit{color:var(--warn)}
+.step.success{color:var(--success)}
+.step.error{color:var(--danger)}
+.step.rotate{color:#a855f7}
+.step.info{color:var(--text);font-weight:500}
+
+/* CANVAS */
+.canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg)}
+.canvas-wrap::before{content:'';position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:32px 32px;opacity:.2;pointer-events:none}
+#tree-svg{width:100%;height:100%;display:block;position:relative;z-index:1}
+
+.empty-state{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--faint);font-size:12px;z-index:2;pointer-events:none}
+.empty-state .big{font-size:48px;margin-bottom:.75rem;opacity:.2}
+
+/* LEGEND */
+.legend{display:flex;flex-wrap:wrap;gap:12px;padding:.6rem 1.25rem;background:var(--bg2);border-top:1px solid var(--border);font-size:10px;color:var(--muted);flex-shrink:0}
+.leg{display:flex;align-items:center;gap:5px}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* Tooltip */
+.tooltip{position:absolute;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:.4rem .7rem;font-size:10px;color:var(--text);pointer-events:none;z-index:10;white-space:nowrap;display:none}
+</style>
+</head>
+<body>
+<div class="header">
+  <a class="back-btn" href="/">← back</a>
+  <span class="header-title">{{ {'bst':'Binary Search Tree','avl':'AVL Tree','rb':'Red-Black Tree'}[tree_type] }}</span>
+  <span class="header-badge badge-{{ tree_type }}">{{ tree_type|upper }}</span>
+  <div class="header-stats">
+    <div class="stat">Nodes: <span id="stat-nodes">0</span></div>
+    <div class="stat">Height: <span id="stat-height">0</span></div>
+    {% if tree_type == 'avl' %}<div class="stat">Balanced: <span id="stat-bal">yes</span></div>{% endif %}
+    {% if tree_type == 'rb' %}<div class="stat">Black-height: <span id="stat-bh">0</span></div>{% endif %}
+  </div>
+</div>
+
+<div class="body">
+  <div class="sidebar">
+    <div class="sb-scroll">
+      <div class="sb-section">
+        <div class="sb-label">Operation</div>
+        <div class="op-tabs">
+          <button class="op-tab active" id="tab-insert" onclick="setOp('insert')">Insert</button>
+          <button class="op-tab" id="tab-delete" onclick="setOp('delete')">Delete</button>
+          <button class="op-tab" id="tab-search" onclick="setOp('search')">Search</button>
+        </div>
+        <div class="input-row">
+          <input class="val-input" id="val-input" type="number" placeholder="Value…" onkeydown="if(event.key==='Enter')execOp()"/>
+          <button class="go-btn" onclick="execOp()">Go</button>
+        </div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-label">Quick fill</div>
+        <div class="util-row">
+          <button class="util-btn" onclick="quickFill([30,15,50,10,20,40,60])">▶ Balanced set (7)</button>
+          <button class="util-btn" onclick="quickFill([10,20,30,40,50])">▶ Right-skewed (5)</button>
+          <button class="util-btn" onclick="quickFill(randomVals(9))">▶ Random (9)</button>
+          <button class="util-btn danger" onclick="resetTree()">✕ Clear tree</button>
+        </div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-label">Animation speed</div>
+        <div class="speed-row">
+          <label>Slow</label>
+          <input type="range" id="speed" min="150" max="1400" value="700" step="50"/>
+          <label>Fast</label>
+        </div>
+      </div>
+
+      <div class="sb-section" style="display:flex;flex-direction:column;min-height:0">
+        <div class="sb-label">Step log</div>
+        <div class="steps-box" id="steps-box">
+          <div class="step" style="color:var(--faint)">Steps appear here…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="empty-state" id="empty-state">
+      <div class="big">⬡</div>
+      Tree is empty.<br/>Insert a value to begin.
+    </div>
+    <svg id="tree-svg" viewBox="0 0 900 560"></svg>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<script>
+var TREE_TYPE = '{{ tree_type }}';
+var currentOp = 'insert';
+var treeCache = null;  // last known tree from server
+var stepLog = [];
+var animBusy = false;
+
+// ── Legend ───────────────────────────────────────────────
+var legends = {
+  bst: [{c:'#3b5bdb',l:'Node'},{c:'#f6a623',l:'Visiting'},{c:'#3ecf8e',l:'Found / inserted'},{c:'#ef4444',l:'Deleting'}],
+  avl: [{c:'#3b5bdb',l:'Balanced'},{c:'#ef4444',l:'Unbalanced'},{c:'#a855f7',l:'Rotating'},{c:'#f6a623',l:'Visiting'},{c:'#3ecf8e',l:'Found / inserted'}],
+  rb:  [{c:'#ef4444',l:'Red node'},{c:'#1e2d40',l:'Black node'},{c:'#f6a623',l:'Visiting'},{c:'#3ecf8e',l:'Inserted / found'},{c:'#a855f7',l:'Recolored'}]
+};
+(function(){
+  var el=document.getElementById('legend');
+  el.innerHTML=legends[TREE_TYPE].map(l=>`<div class="leg"><div class="leg-dot" style="background:${l.c}"></div>${l.l}</div>`).join('');
+})();
+
+// ── Op control ───────────────────────────────────────────
+function setOp(op){
+  currentOp=op;
+  ['insert','delete','search'].forEach(o=>{
+    document.getElementById('tab-'+o).classList.toggle('active',o===op);
+  });
+}
+
+// ── Log ──────────────────────────────────────────────────
+function addStep(msg,cls){
+  stepLog.push({msg,cls});
+  var box=document.getElementById('steps-box');
+  box.innerHTML=stepLog.slice(-30).map(s=>`<div class="step ${s.cls||''}">${s.msg}</div>`).join('');
+  box.scrollTop=box.scrollHeight;
+}
+function clearSteps(){stepLog=[];document.getElementById('steps-box').innerHTML='<div class="step" style="color:var(--faint)">Steps appear here…</div>';}
+
+// ── API calls ────────────────────────────────────────────
+async function apiCall(endpoint, body){
+  var res = await fetch(`/api/${TREE_TYPE}/${endpoint}`, {
+    method: body ? 'POST' : 'GET',
+    headers: {'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return res.json();
+}
+
+// ── Execute operation ────────────────────────────────────
+async function execOp(){
+  var v = parseInt(document.getElementById('val-input').value);
+  if(isNaN(v)){ addStep('Enter a valid integer.','error'); return; }
+  document.getElementById('val-input').value='';
+  clearSteps();
+  addStep(`── ${currentOp.toUpperCase()} ${v} ──`,'info');
+
+  try {
+    var data;
+    if(currentOp==='insert')  data = await apiCall('insert',{value:v});
+    else if(currentOp==='delete') data = await apiCall('delete',{value:v});
+    else data = await apiCall('search',{value:v});
+
+    if(data.error){ addStep(data.error,'error'); return; }
+
+    if(currentOp==='search'){
+      animateSearch(treeCache, v, data.found);
+      addStep(data.message, data.found?'success':'error');
+    } else {
+      var oldTree = treeCache;
+      treeCache = data.tree;
+      await animateOperation(oldTree, treeCache, v, currentOp);
+      addStep(data.message, currentOp==='delete'?'error':'success');
+      updateStats(treeCache);
+    }
+  } catch(e){ addStep('Server error: '+e.message,'error'); }
+}
+
+// ── Stats ─────────────────────────────────────────────────
+function treeHeight(n){ if(!n)return 0; return 1+Math.max(treeHeight(n.left),treeHeight(n.right)); }
+function countNodes(n){ if(!n)return 0; return 1+countNodes(n.left)+countNodes(n.right); }
+function blackHeight(n){ if(!n)return 1; var l=blackHeight(n.left); return (n.color==='B'?1:0)+l; }
+function isBalancedAVL(n){ if(!n)return true; var b=(n.bf||0); return Math.abs(b)<=1&&isBalancedAVL(n.left)&&isBalancedAVL(n.right); }
+function updateStats(tree){
+  document.getElementById('stat-nodes').textContent=countNodes(tree);
+  document.getElementById('stat-height').textContent=treeHeight(tree);
+  if(TREE_TYPE==='avl') document.getElementById('stat-bal').textContent=isBalancedAVL(tree)?'yes':'no';
+  if(TREE_TYPE==='rb')  document.getElementById('stat-bh').textContent=blackHeight(tree)-1;
+}
+
+// ── Quick fill ────────────────────────────────────────────
+function randomVals(n){ var v=[]; while(v.length<n){var r=Math.floor(Math.random()*90)+5; if(!v.includes(r))v.push(r);} return v; }
+async function quickFill(vals){
+  await apiCall('reset', {});
+  treeCache=null; clearSteps(); renderTree(null,null,null);
+  var sp=parseInt(document.getElementById('speed').value)||700;
+  for(var v of vals){
+    var data=await apiCall('insert',{value:v});
+    treeCache=data.tree;
+    addStep(`Inserted ${v}`,'success');
+    renderTree(treeCache,null,null);
+    await sleep(Math.min(sp, 400));
+  }
+  updateStats(treeCache);
+}
+async function resetTree(){
+  await apiCall('reset',{});
+  treeCache=null; clearSteps(); renderTree(null,null,null);
+  updateStats(null);
+}
+
+// ── Animation helpers ─────────────────────────────────────
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function animateSearch(tree, val, found){
+  var sp=parseInt(document.getElementById('speed').value)||700;
+  var path=[];
+  function findPath(n,v){ if(!n)return; path.push(n.value); if(n.value===v)return; v<n.value?findPath(n.left,v):findPath(n.right,v); }
+  findPath(tree,val);
+  for(var i=0;i<path.length;i++){
+    var nodeVal=path[i];
+    addStep(`→ Visit ${nodeVal}${nodeVal===val?' — MATCH!':''}`, nodeVal===val?'success':'visit');
+    renderTree(treeCache, nodeVal, null, found&&nodeVal===val?'found':null);
+    await sleep(sp);
+  }
+  if(!found){ addStep(`${val} not found in tree`,'error'); renderTree(treeCache,null,null); }
+}
+
+async function animateOperation(oldTree, newTree, val, op){
+  var sp=parseInt(document.getElementById('speed').value)||700;
+  // Walk down old tree showing the traversal path
+  var path=[];
+  function trace(n,v){ if(!n)return; path.push(n.value); if(n.value===v)return; v<n.value?trace(n.left,v):trace(n.right,v); }
+  if(oldTree) trace(oldTree,val);
+
+  for(var p of path){
+    addStep(`→ Visit ${p}`, p===val?(op==='delete'?'error':'success'):'visit');
+    renderTree(oldTree, p, op==='delete'&&p===val?'delete':null);
+    await sleep(sp);
+  }
+  // Show final state
+  await sleep(Math.floor(sp*0.5));
+  renderTree(newTree, null, null);
+  if(TREE_TYPE==='avl') addStep('Rebalancing if needed…','rotate');
+  if(TREE_TYPE==='rb')  addStep('Fixing RB properties…','rotate');
+}
+
+// ── Render ────────────────────────────────────────────────
+var SVG_W=900, SVG_H=560, R=17;
+
+function nodeColor(node, hval, haction){
+  if(TREE_TYPE==='rb'){
+    if(node.value===hval) return haction==='delete'?'#ef4444':'#f6a623';
+    return node.color==='R'?'#c0392b':'#1e2d40';
+  }
+  if(node.value===hval){
+    return haction==='delete'?'#ef4444':'#3ecf8e';
+  }
+  if(TREE_TYPE==='avl' && Math.abs(node.bf||0)>1) return '#ef4444';
+  return '#3b5bdb';
+}
+
+function renderTree(root, hval, haction, hfound){
+  var svg=document.getElementById('tree-svg');
+  var empty=document.getElementById('empty-state');
+  if(!root){ svg.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  var nodes=[], edges=[];
+
+  function layout(n, depth, lo, hi){
+    if(!n) return;
+    var mx=(lo+hi)/2;
+    var y=45+depth*75;
+    n._x=mx; n._y=y;
+    nodes.push(n);
+    var lx=(lo+mx)/2, rx=(mx+hi)/2;
+    if(n.left){
+      var edgeColor = TREE_TYPE==='rb'&&n.left.color==='R' ? '#c0392b' : '#3a3a46';
+      edges.push({x1:mx,y1:y,x2:lx,y2:y+75,c:edgeColor});
+      layout(n.left,depth+1,lo,mx);
+    }
+    if(n.right){
+      var edgeColor = TREE_TYPE==='rb'&&n.right.color==='R' ? '#c0392b' : '#3a3a46';
+      edges.push({x1:mx,y1:y,x2:rx,y2:y+75,c:edgeColor});
+      layout(n.right,depth+1,mx,hi);
+    }
+  }
+  layout(root,0,0,SVG_W);
+
+  var out='';
+  edges.forEach(e=>{
+    out+=`<line x1="${e.x1}" y1="${e.y1}" x2="${e.x2}" y2="${e.y2}" stroke="${e.c}" stroke-width="1.5" opacity="0.6"/>`;
+  });
+  nodes.forEach(n=>{
+    var fill=hfound&&n.value===hval?'#3ecf8e':nodeColor(n,hval,haction);
+    var stroke = TREE_TYPE==='rb'?(n.color==='R'?'#7f1d1d':'#0a1828'):'none';
+    var sw = TREE_TYPE==='rb'?2:0;
+    // pulse ring for highlighted
+    if(n.value===hval){
+      out+=`<circle cx="${n._x}" cy="${n._y}" r="${R+5}" fill="none" stroke="${fill}" stroke-width="1" opacity="0.4"/>`;
+    }
+    out+=`<circle cx="${n._x}" cy="${n._y}" r="${R}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    out+=`<text x="${n._x}" y="${n._y+4}" text-anchor="middle" fill="#fff" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${n.value}</text>`;
+    // AVL balance factor annotation
+    if(TREE_TYPE==='avl' && n.bf!==undefined){
+      var bfColor = Math.abs(n.bf)>1?'#ef4444':Math.abs(n.bf)===1?'#f6a623':'#3a3a46';
+      out+=`<text x="${n._x+R+3}" y="${n._y-R+6}" font-size="9" fill="${bfColor}" font-family="JetBrains Mono,monospace">${n.bf>=0?'+':''}${n.bf}</text>`;
+    }
+    // RB color label
+    if(TREE_TYPE==='rb'){
+      out+=`<text x="${n._x}" y="${n._y+R+10}" text-anchor="middle" font-size="8" fill="${n.color==='R'?'#c0392b':'#7a7a8c'}" font-family="JetBrains Mono,monospace">${n.color}</text>`;
+    }
+  });
+  svg.innerHTML=out;
+}
+
+// ── Init ─────────────────────────────────────────────────
+(async function(){
+  try {
+    var data = await apiCall('tree');
+    treeCache = data.tree;
+    renderTree(treeCache,null,null);
+    updateStats(treeCache);
+  } catch(e){ console.warn('Could not fetch initial tree'); }
+})();
+</script>
+</body>
+</html>
