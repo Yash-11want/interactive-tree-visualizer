@@ -36,7 +36,7 @@ processes = {} #Instead of starting bst.exe every time the user clicks Insert, F
 def get_process(tree_type):
     global processes
     binary_ext = ".exe" if os.name == 'nt' else ""
-    binary_path = f'./{tree_type}{binary_ext}'
+    binary_path = f'./cpp/{tree_type}{binary_ext}'
     if tree_type not in processes or processes[tree_type].poll() is not None: #Start process if: 1. It doesn't exist ,OR ,2. It crashed
         processes[tree_type] = subprocess.Popen(
             [binary_path],
